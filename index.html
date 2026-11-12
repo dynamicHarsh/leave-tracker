@@ -1,0 +1,706 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Leave Tracker</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+
+  :root {
+    --bg: #0a0a0f;
+    --surface: #13131a;
+    --surface-2: #1a1a24;
+    --border: rgba(255,255,255,0.06);
+    --text: #e8e8ed;
+    --text-muted: #6b6b7b;
+    --text-dim: #44445a;
+    --accent: #6366f1;
+    --accent-glow: rgba(99,102,241,0.15);
+    --urgent: #f43f5e;
+    --urgent-soft: rgba(244,63,94,0.08);
+    --safe: #10b981;
+    --safe-soft: rgba(16,185,129,0.08);
+    --neutral: #6b7280;
+    --neutral-soft: rgba(107,114,128,0.08);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Inter', -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  .noise {
+    position: fixed;
+    inset: 0;
+    opacity: 0.03;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .glow-orb {
+    position: fixed;
+    width: 600px;
+    height: 600px;
+    border-radius: 50%;
+    filter: blur(120px);
+    opacity: 0.07;
+    pointer-events: none;
+    z-index: 0;
+  }
+  .glow-orb-1 { background: #6366f1; top: -200px; right: -100px; }
+  .glow-orb-2 { background: #f43f5e; bottom: -200px; left: -100px; }
+
+  .app {
+    position: relative;
+    z-index: 1;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 48px 24px 80px;
+  }
+
+  /* Header */
+  .hero {
+    text-align: center;
+    margin-bottom: 48px;
+  }
+
+  .hero-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    border-radius: 100px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-muted);
+    margin-bottom: 20px;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+  }
+
+  .hero-badge .pulse {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--accent);
+    animation: pulse 2s infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(99,102,241,0.4); }
+    50% { opacity: 0.7; box-shadow: 0 0 0 6px rgba(99,102,241,0); }
+  }
+
+  .hero h1 {
+    font-size: clamp(32px, 5vw, 48px);
+    font-weight: 800;
+    letter-spacing: -1.5px;
+    line-height: 1.1;
+    background: linear-gradient(135deg, #fff 0%, #6b6b8a 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .hero p {
+    color: var(--text-muted);
+    font-size: 15px;
+    margin-top: 10px;
+    font-weight: 400;
+  }
+
+  /* Stats summary */
+  .stats-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin-bottom: 40px;
+  }
+
+  @media (max-width: 600px) {
+    .stats-row { grid-template-columns: repeat(2, 1fr); }
+  }
+
+  .stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 20px;
+    text-align: center;
+    transition: border-color 0.3s, transform 0.2s;
+  }
+
+  .stat-card:hover {
+    border-color: rgba(255,255,255,0.12);
+    transform: translateY(-2px);
+  }
+
+  .stat-number {
+    font-size: 28px;
+    font-weight: 800;
+    letter-spacing: -1px;
+    line-height: 1;
+  }
+
+  .stat-number.accent { color: var(--accent); }
+  .stat-number.urgent { color: var(--urgent); }
+  .stat-number.safe { color: var(--safe); }
+  .stat-number.neutral { color: var(--text-muted); }
+
+  .stat-label {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: var(--text-dim);
+    margin-top: 8px;
+  }
+
+  /* Config panel */
+  .config {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 28px;
+    margin-bottom: 32px;
+  }
+
+  .config-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 20px;
+    cursor: pointer;
+    user-select: none;
+  }
+
+  .config-header h2 {
+    font-size: 13px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--text-muted);
+  }
+
+  .config-toggle {
+    font-size: 12px;
+    color: var(--text-dim);
+    transition: color 0.2s;
+  }
+
+  .config-header:hover .config-toggle { color: var(--text-muted); }
+
+  .config-body {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 12px;
+    align-items: end;
+  }
+
+  .field label {
+    display: block;
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--text-dim);
+    margin-bottom: 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .field input, .field select {
+    width: 100%;
+    padding: 10px 14px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text);
+    background: var(--surface-2);
+    font-family: inherit;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    appearance: none;
+    -webkit-appearance: none;
+  }
+
+  .field select {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%236b6b7b' viewBox='0 0 16 16'%3E%3Cpath d='M8 11L3 6h10z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    padding-right: 32px;
+  }
+
+  .field input:focus, .field select:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-glow);
+  }
+
+  .update-btn {
+    padding: 10px 24px;
+    background: var(--accent);
+    color: white;
+    border: none;
+    border-radius: 10px;
+    font-size: 13px;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    transition: all 0.2s;
+    height: 42px;
+    letter-spacing: 0.3px;
+  }
+
+  .update-btn:hover {
+    background: #5558e6;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 20px rgba(99,102,241,0.3);
+  }
+
+  .update-btn:active { transform: translateY(0); }
+
+  /* Leave cards */
+  .cards {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .leave-card {
+    display: grid;
+    grid-template-columns: 48px 1fr auto;
+    gap: 20px;
+    align-items: center;
+    padding: 22px 24px;
+    border-radius: 16px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .leave-card::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+    border-radius: 0 3px 3px 0;
+    transition: opacity 0.3s;
+  }
+
+  .leave-card.urgent::before { background: var(--urgent); }
+  .leave-card.safe::before { background: var(--safe); }
+  .leave-card.neutral::before { background: var(--neutral); }
+
+  .leave-card:hover {
+    border-color: rgba(255,255,255,0.1);
+    transform: translateX(4px);
+  }
+
+  .leave-card.urgent:hover { background: var(--urgent-soft); }
+  .leave-card.safe:hover { background: var(--safe-soft); }
+  .leave-card.neutral:hover { background: var(--neutral-soft); }
+
+  .card-rank {
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    font-weight: 800;
+    flex-shrink: 0;
+  }
+
+  .urgent .card-rank {
+    background: var(--urgent-soft);
+    color: var(--urgent);
+    border: 1px solid rgba(244,63,94,0.15);
+  }
+
+  .safe .card-rank {
+    background: var(--safe-soft);
+    color: var(--safe);
+    border: 1px solid rgba(16,185,129,0.15);
+  }
+
+  .neutral .card-rank {
+    background: var(--neutral-soft);
+    color: var(--neutral);
+    border: 1px solid rgba(107,114,128,0.15);
+  }
+
+  .card-info { min-width: 0; }
+
+  .card-title {
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: -0.3px;
+    margin-bottom: 4px;
+  }
+
+  .card-meta {
+    font-size: 12.5px;
+    color: var(--text-muted);
+    line-height: 1.5;
+  }
+
+  .card-meta .tag {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 6px;
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-right: 6px;
+    vertical-align: middle;
+  }
+
+  .tag-expire {
+    background: rgba(244,63,94,0.1);
+    color: var(--urgent);
+  }
+
+  .tag-carry {
+    background: rgba(16,185,129,0.1);
+    color: var(--safe);
+  }
+
+  .tag-none {
+    background: rgba(107,114,128,0.1);
+    color: var(--neutral);
+  }
+
+  .card-balance {
+    text-align: right;
+    flex-shrink: 0;
+    min-width: 80px;
+  }
+
+  .balance-num {
+    font-size: 26px;
+    font-weight: 800;
+    letter-spacing: -1px;
+    line-height: 1;
+  }
+
+  .urgent .balance-num { color: var(--urgent); }
+  .safe .balance-num { color: var(--safe); }
+  .neutral .balance-num { color: var(--text-muted); }
+
+  .balance-unit {
+    font-size: 11px;
+    color: var(--text-dim);
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-top: 4px;
+  }
+
+  /* Footer */
+  .footer {
+    margin-top: 48px;
+    text-align: center;
+    font-size: 12px;
+    color: var(--text-dim);
+    line-height: 1.7;
+  }
+
+  .footer strong { color: var(--text-muted); font-weight: 600; }
+
+  /* Expand details */
+  .card-details {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border);
+    margin-top: 8px;
+    max-height: 0;
+    overflow: hidden;
+    opacity: 0;
+    transition: max-height 0.4s ease, opacity 0.3s ease, margin-top 0.3s ease, padding-top 0.3s ease;
+  }
+
+  .leave-card.expanded .card-details {
+    max-height: 200px;
+    opacity: 1;
+  }
+
+  .leave-card:not(.expanded) .card-details {
+    margin-top: 0;
+    padding-top: 0;
+  }
+
+  .detail-block label {
+    display: block;
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: var(--text-dim);
+    margin-bottom: 4px;
+  }
+
+  .detail-block span {
+    font-size: 13px;
+    color: var(--text-muted);
+    line-height: 1.5;
+  }
+
+  .expand-hint {
+    font-size: 11px;
+    color: var(--text-dim);
+    text-align: center;
+    margin-top: 16px;
+    opacity: 0.6;
+  }
+
+  @media (max-width: 640px) {
+    .leave-card {
+      grid-template-columns: 40px 1fr;
+      gap: 14px;
+    }
+    .card-balance {
+      grid-column: 1 / -1;
+      text-align: left;
+      display: flex;
+      align-items: baseline;
+      gap: 6px;
+    }
+    .balance-num { font-size: 22px; }
+    .card-details { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<div class="noise"></div>
+<div class="glow-orb glow-orb-1"></div>
+<div class="glow-orb glow-orb-2"></div>
+
+<div class="app">
+
+  <!-- Hero -->
+  <div class="hero">
+    <div class="hero-badge"><span class="pulse"></span> Cognizant India</div>
+    <h1>Leave Tracker</h1>
+    <p>Know what to use, when, and why.</p>
+  </div>
+
+  <!-- Stats -->
+  <div class="stats-row">
+    <div class="stat-card">
+      <div class="stat-number accent" id="statTotal">39</div>
+      <div class="stat-label">Total Days</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-number urgent" id="statExpiring">13.5</div>
+      <div class="stat-label">Expiring</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-number safe" id="statSafe">25.5</div>
+      <div class="stat-label">Safe</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-number neutral" id="statMonths">2</div>
+      <div class="stat-label">Months Left</div>
+    </div>
+  </div>
+
+  <!-- Config -->
+  <div class="config">
+    <div class="config-header" onclick="toggleConfig()">
+      <h2>Configure Balances</h2>
+      <span class="config-toggle" id="configToggle">collapse</span>
+    </div>
+    <div id="configBody" class="config-body">
+      <div class="field">
+        <label>Month</label>
+        <select id="currentMonth">
+          <option value="1">Jan</option><option value="2">Feb</option>
+          <option value="3">Mar</option><option value="4">Apr</option>
+          <option value="5">May</option><option value="6">Jun</option>
+          <option value="7">Jul</option><option value="8">Aug</option>
+          <option value="9">Sep</option><option value="10">Oct</option>
+          <option value="11" selected>Nov</option><option value="12">Dec</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Earned Leave</label>
+        <input type="number" id="totalEL" value="24" min="0" step="0.5">
+      </div>
+      <div class="field">
+        <label>Comp Off</label>
+        <input type="number" id="compOff" value="0" min="0" step="0.5">
+      </div>
+      <div class="field">
+        <label>Sick Leave</label>
+        <input type="number" id="sickLeave" value="9" min="0" step="0.5">
+      </div>
+      <div class="field">
+        <label>Casual Leave</label>
+        <input type="number" id="casualLeave" value="6" min="0" step="0.5">
+      </div>
+      <button onclick="calculateLeaves()" class="update-btn">Update</button>
+    </div>
+  </div>
+
+  <!-- Cards -->
+  <div class="cards" id="leaveCards">
+    <!-- Rendered by JS -->
+  </div>
+
+  <div class="expand-hint">Click any card to see details</div>
+
+  <div class="footer">
+    Cross-check balances in <strong>EAMS (1C Portal)</strong> periodically.<br>
+    Paternity, maternity & adoption leaves not shown.
+  </div>
+</div>
+
+<script>
+const leaveData = [
+  {
+    id: 'carryEL', priority: 1, type: 'urgent',
+    title: 'Earned Leave (Carried Over)',
+    desc: 'Planned time off. Apply a week ahead. Use first to prevent expiry.',
+    carry: 'No — already carried once', validity: 'Dec 31, 2026', tagText: 'Expires', tagClass: 'tag-expire',
+    detail: 'These are last year’s earned leaves carried into 2026. They cannot roll over again — use or lose.'
+  },
+  {
+    id: 'compOff', priority: 2, type: 'urgent',
+    title: 'Compensatory Off',
+    desc: 'Day off for working a weekend/holiday. Manager approval needed.',
+    carry: 'No', validity: '60 days from day worked', tagText: 'Expires', tagClass: 'tag-expire',
+    detail: 'Earned when you work on a holiday or weekend. Maximum 3 consecutive days. Apply within 60 calendar days.'
+  },
+  {
+    id: 'casual', priority: 3, type: 'urgent',
+    title: 'Casual Leave',
+    desc: 'Emergencies, short breaks, festivals not on holiday list.',
+    carry: 'No', validity: 'Dec 31, same year', tagText: 'Expires', tagClass: 'tag-expire',
+    detail: 'Not encashable. Intended for short, unplanned personal needs. Does not carry over to next year.'
+  },
+  {
+    id: 'sick', priority: 4, type: 'safe',
+    title: 'Sick Leave',
+    desc: 'Only when actually ill. Medical proof if >3 consecutive days.',
+    carry: 'Yes, up to 18 days', validity: 'No expiry (cap 18)', tagText: 'Carries', tagClass: 'tag-carry',
+    detail: 'Rolls over up to 18 days. Anything above 18 lapses. Not encashable. Don’t misuse — it’s your safety net.'
+  },
+  {
+    id: 'currentEL', priority: 5, type: 'safe',
+    title: 'Earned Leave (2026)',
+    desc: 'Buffer for longer trips, notice period, or encashment.',
+    carry: 'Yes, one year', validity: 'Dec 31, 2027', tagText: 'Carries', tagClass: 'tag-carry',
+    detail: 'Accrues at 1.5/month (max 18/yr). Carries forward once. Encashable on exit. Your most valuable balance.'
+  },
+  {
+    id: 'lop', priority: 6, type: 'neutral',
+    title: 'Loss of Pay',
+    desc: 'Last resort — only after all paid leaves are exhausted.',
+    carry: 'N/A', validity: 'Max 90 days/yr', tagText: 'Unpaid', tagClass: 'tag-none',
+    detail: 'Deducted from salary. Max 90 days for personal, 180 for critical illness. Avoid if at all possible.'
+  }
+];
+
+let configOpen = true;
+
+function toggleConfig() {
+  configOpen = !configOpen;
+  const body = document.getElementById('configBody');
+  const toggle = document.getElementById('configToggle');
+  body.style.display = configOpen ? 'grid' : 'none';
+  toggle.textContent = configOpen ? 'collapse' : 'expand';
+}
+
+function fmt(n) {
+  const s = n.toFixed(1);
+  return s.endsWith('.0') ? s.slice(0, -2) : s;
+}
+
+function calculateLeaves() {
+  const month = parseInt(document.getElementById('currentMonth').value);
+  const totalEL = parseFloat(document.getElementById('totalEL').value) || 0;
+  const compOff = parseFloat(document.getElementById('compOff').value) || 0;
+  const sick = parseFloat(document.getElementById('sickLeave').value) || 0;
+  const casual = parseFloat(document.getElementById('casualLeave').value) || 0;
+
+  const currentYearEL = Math.min(totalEL, month * 1.5);
+  const carryEL = Math.max(0, totalEL - currentYearEL);
+
+  const balances = {
+    carryEL, compOff, casual, sick, currentEL: currentYearEL, lop: 0
+  };
+
+  const expiring = carryEL + compOff + casual;
+  const safe = sick + currentYearEL;
+  const total = expiring + safe;
+  const monthsLeft = 12 - month;
+
+  document.getElementById('statTotal').textContent = fmt(total);
+  document.getElementById('statExpiring').textContent = fmt(expiring);
+  document.getElementById('statSafe').textContent = fmt(safe);
+  document.getElementById('statMonths').textContent = monthsLeft;
+
+  renderCards(balances);
+}
+
+function renderCards(balances) {
+  const container = document.getElementById('leaveCards');
+  container.innerHTML = leaveData.map(d => {
+    const bal = balances[d.id];
+    const balStr = d.id === 'lop' ? '—' : fmt(bal);
+    const unitStr = d.id === 'lop' ? 'unpaid' : 'days';
+    return `
+      <div class="leave-card ${d.type}" onclick="this.classList.toggle('expanded')">
+        <div class="card-rank">${d.priority}</div>
+        <div class="card-info">
+          <div class="card-title">${d.title}</div>
+          <div class="card-meta">
+            <span class="tag ${d.tagClass}">${d.tagText}</span>
+            ${d.desc}
+          </div>
+        </div>
+        <div class="card-balance">
+          <div class="balance-num">${balStr}</div>
+          <div class="balance-unit">${unitStr}</div>
+        </div>
+        <div class="card-details">
+          <div class="detail-block">
+            <label>Why this priority</label>
+            <span>${d.detail}</span>
+          </div>
+          <div class="detail-block">
+            <label>Carry Forward</label>
+            <span>${d.carry}</span>
+          </div>
+          <div class="detail-block">
+            <label>Valid Until</label>
+            <span>${d.validity}</span>
+          </div>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+window.onload = calculateLeaves;
+</script>
+
+</body>
+</html>
